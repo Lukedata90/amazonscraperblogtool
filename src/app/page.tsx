@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import ArticleCard from "@/components/ArticleCard";
 import OnboardingModal from "@/components/OnboardingModal";
 import UXMapModal from "@/components/UXMapModal";
+import VoiceBriefing from "@/components/VoiceBriefing";
 import { articles } from "@/lib/mock-data";
 
 type Tab = "amazon" | "macro";
@@ -141,6 +142,7 @@ export default function Home() {
               </span>
             </div>
             <div className="flex-1 hud-divider" />
+            <VoiceBriefing articles={tabArticles} activeTab={activeTab} accentColor={accentColor} />
           </div>
 
           {/* Featured article */}
