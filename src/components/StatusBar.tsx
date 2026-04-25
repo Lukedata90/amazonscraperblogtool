@@ -60,6 +60,23 @@ export default function StatusBar({ activeTab }: Props) {
           </span>
         </div>
       </div>
+
+      {/* Logout */}
+      <button
+        onClick={() => (window as Window & { bulletinLogout?: () => void }).bulletinLogout?.()}
+        title="Esci"
+        style={{
+          background: "transparent", border: "none",
+          color: "rgba(255,255,255,0.2)", fontSize: 9,
+          letterSpacing: "0.1em", cursor: "pointer",
+          fontFamily: "inherit", padding: "2px 6px",
+          transition: "color 0.2s",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = "#FF6600"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.2)"; }}
+      >
+        ⏻
+      </button>
     </header>
   );
 }

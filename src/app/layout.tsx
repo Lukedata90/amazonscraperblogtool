@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Mono } from "next/font/google";
+import LoginGate from "@/components/LoginGate";
 import "./globals.css";
 
 const spaceMono = Space_Mono({
@@ -20,7 +21,7 @@ export default function RootLayout({
     <html lang="it" className={`${spaceMono.variable} h-full`}>
       <body className="min-h-full bg-black text-white scanlines" style={{ fontFamily: "var(--font-space-mono), monospace" }}>
         <div className="scan-beam" />
-        {children}
+        <LoginGate>{children}</LoginGate>
       </body>
     </html>
   );
