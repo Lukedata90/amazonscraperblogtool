@@ -1,0 +1,286 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-orange: #FF6600;
+  --color-orange-bright: #FF8C00;
+  --color-orange-dim: #CC4400;
+  --color-orange-glow: rgba(255, 102, 0, 0.3);
+  --color-orange-subtle: rgba(255, 102, 0, 0.08);
+  --color-panel: #080808;
+  --color-card: #0D0D0D;
+  --color-border: rgba(255, 102, 0, 0.3);
+  --color-border-bright: rgba(255, 102, 0, 0.7);
+  --color-dim: rgba(255, 255, 255, 0.45);
+  --color-muted: rgba(255, 255, 255, 0.2);
+  --font-mono: var(--font-space-mono), monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background: #000;
+  color: #fff;
+  font-family: var(--font-space-mono), 'Courier New', monospace;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #FF6600 #111;
+}
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #FF6600; }
+
+/* ── Scanlines overlay ─────────────────────────────────── */
+.scanlines::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.06) 3px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 9000;
+}
+
+/* ── Moving scan beam ──────────────────────────────────── */
+.scan-beam {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 120px;
+  top: -120px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 102, 0, 0.03) 40%,
+    rgba(255, 102, 0, 0.07) 50%,
+    rgba(255, 102, 0, 0.03) 60%,
+    transparent 100%
+  );
+  animation: scanBeam 12s linear infinite;
+  pointer-events: none;
+  z-index: 8999;
+}
+
+@keyframes scanBeam {
+  0%   { top: -120px; }
+  100% { top: 100vh; }
+}
+
+/* ── Dot grid background ───────────────────────────────── */
+.dot-grid {
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 102, 0, 0.12) 1px,
+    transparent 1px
+  );
+  background-size: 32px 32px;
+}
+
+/* ── HUD card with clipped corners ────────────────────── */
+.hud-card {
+  position: relative;
+  background: #0D0D0D;
+  border: 1px solid rgba(255, 102, 0, 0.3);
+  clip-path: polygon(
+    0 14px, 14px 0,
+    calc(100% - 14px) 0, 100% 14px,
+    100% calc(100% - 14px), calc(100% - 14px) 100%,
+    14px 100%, 0 calc(100% - 14px)
+  );
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.hud-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 102, 0, 0.04) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.hud-card:hover {
+  border-color: rgba(255, 102, 0, 0.65);
+  box-shadow: 0 0 24px rgba(255, 102, 0, 0.15), inset 0 0 24px rgba(255, 102, 0, 0.03);
+}
+
+/* ── Small HUD card (no clip, just border) ─────────────── */
+.hud-sm {
+  background: #0D0D0D;
+  border: 1px solid rgba(255, 102, 0, 0.25);
+  transition: border-color 0.2s;
+}
+
+.hud-sm:hover {
+  border-color: rgba(255, 102, 0, 0.6);
+}
+
+/* ── Glow text ─────────────────────────────────────────── */
+.glow {
+  text-shadow:
+    0 0 8px #FF6600,
+    0 0 20px rgba(255, 102, 0, 0.5);
+}
+
+.glow-sm {
+  text-shadow: 0 0 6px rgba(255, 102, 0, 0.6);
+}
+
+/* ── Category badge ────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 102, 0, 0.5);
+  color: #FF6600;
+  text-transform: uppercase;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  white-space: nowrap;
+}
+
+.badge-white {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  white-space: nowrap;
+}
+
+/* ── Pulsing status dot ────────────────────────────────── */
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FF6600;
+  box-shadow: 0 0 6px #FF6600, 0 0 12px rgba(255,102,0,0.4);
+  animation: pulseDot 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.pulse-dot-green {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00FF88;
+  box-shadow: 0 0 6px #00FF88;
+  animation: pulseDot 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ── Ticker animation ──────────────────────────────────── */
+.ticker-track {
+  display: flex;
+  white-space: nowrap;
+  animation: ticker 40s linear infinite;
+}
+
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ── Active nav indicator ──────────────────────────────── */
+.nav-active {
+  color: #FF6600;
+  text-shadow: 0 0 8px rgba(255,102,0,0.5);
+}
+
+.nav-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: #FF6600;
+  box-shadow: 0 0 8px #FF6600;
+}
+
+/* ── Corner brackets ───────────────────────────────────── */
+.corner-tl::before,
+.corner-tl::after,
+.corner-br::before,
+.corner-br::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: #FF6600;
+  border-style: solid;
+  opacity: 0.8;
+}
+
+.corner-tl::before {
+  top: -1px; left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+.corner-br::after {
+  bottom: -1px; right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+/* ── Featured article accent line ──────────────────────── */
+.featured-accent {
+  position: relative;
+}
+.featured-accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #FF8C00, #FF6600, transparent);
+  box-shadow: 0 0 8px #FF6600;
+}
+
+/* ── Blinking cursor ───────────────────────────────────── */
+.cursor::after {
+  content: '█';
+  color: #FF6600;
+  animation: blink 1.2s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ── Divider ───────────────────────────────────────────── */
+.hud-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,102,0,0.4), transparent);
+}
+
+/* ── Number stat ───────────────────────────────────────── */
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: #FF6600;
+  text-shadow: 0 0 12px rgba(255,102,0,0.5);
+  line-height: 1;
+}
