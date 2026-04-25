@@ -1,12 +1,19 @@
-# Istruzioni Tool Scraper — Amazon Insider Blog
+# Istruzioni Tool Scraper — Amazon Bulletin
 
 ## Panoramica
 
-Questo documento descrive come costruire il sistema di raccolta automatica di news per il blog **Amazon Insider**, focalizzato su notizie per venditori Amazon e aggiornamenti aziendali su Amazon come company.
+Questo documento descrive come costruire il sistema di raccolta automatica di news per **Amazon Bulletin**, un feed intelligence per venditori Amazon e per chiunque voglia monitorare l'ecosistema Amazon.
+
+Il sistema raccoglie due tipologie di notizie, separate in due tab:
+
+| Tab | Cosa raccoglie |
+|---|---|
+| **MONDO AMAZON** | FBA, policy, strumenti seller, advertising, community |
+| **IMPATTO SU AMAZON** | Finanza & mercati, politica & leggi, Big Tech, macro economia |
 
 La pipeline è composta da tre componenti principali:
 - **Apify** — raccolta news via RSS feed
-- **Claude API** — sommario AI e categorizzazione in italiano
+- **Claude API** — sommario AI, categorizzazione e assegnazione tab
 - **Supabase** — storage degli articoli processati
 
 ---
@@ -16,7 +23,7 @@ La pipeline è composta da tre componenti principali:
 | Componente | Servizio | Ruolo |
 |---|---|---|
 | Scraper | Apify `automation-lab/rss-feed-reader` | Legge i feed RSS delle fonti |
-| AI Processing | Claude API `claude-sonnet-4-20250514` | Genera summary in italiano + categoria + tag |
+| AI Processing | Claude API `claude-sonnet-4-5` | Genera summary in italiano + categoria + tab |
 | Database | Supabase (PostgreSQL) | Salva articoli, gestisce deduplication |
 | Backend | Next.js API Route `/api/ingest` | Orchestra l'intera pipeline |
 | Scheduler | Vercel Cron Job | Triggera `/api/ingest` ogni 6 ore |
@@ -24,9 +31,9 @@ La pipeline è composta da tre componenti principali:
 
 ---
 
-## Fonti RSS Configurate
+## Fonti RSS — Tab MONDO AMAZON
 
-Queste fonti vanno inserite nella tabella `sources` di Supabase. L'Actor Apify le leggerà tutte a ogni run.
+Fonti strettamente legate all'ecosistema venditori Amazon.
 
 ### Strumenti e Strategie Seller
 
@@ -69,6 +76,44 @@ Queste fonti vanno inserite nella tabella `sources` di Supabase. L'Actor Apify l
 
 ---
 
+## Fonti RSS — Tab IMPATTO SU AMAZON
+
+Fonti che coprono notizie macro che possono impattare Amazon come azienda: dazi, tassi, regolamentazione, mosse dei competitor Big Tech, recessioni di mercato.
+
+### Finanza & Mercati
+
+| Nome | RSS URL |
+|---|---|
+| Bloomberg Markets | `https://feeds.bloomberg.com/markets/news.rss` |
+| Reuters Business | `https://feeds.reuters.com/reuters/businessNews` |
+| Wall Street Journal Markets | `https://feeds.a.dj.com/rss/RSSMarketsMain.xml` |
+| Financial Times | `https://www.ft.com/rss/home` |
+
+### Politica & Regolamentazione
+
+| Nome | RSS URL |
+|---|---|
+| Politico Economy | `https://www.politico.com/rss/economy.xml` |
+| Reuters Politics | `https://feeds.reuters.com/reuters/politicsNews` |
+| EU Commission News | `https://ec.europa.eu/commission/presscorner/api/rss` |
+
+### Big Tech & Competizione
+
+| Nome | RSS URL |
+|---|---|
+| TechCrunch | `https://techcrunch.com/feed/` |
+| The Verge | `https://www.theverge.com/rss/index.xml` |
+| Ars Technica Business | `https://feeds.arstechnica.com/arstechnica/business` |
+
+### Macro Economia
+
+| Nome | RSS URL |
+|---|---|
+| The Economist | `https://www.economist.com/finance-and-economics/rss.xml` |
+| Project Syndicate | `https://www.project-syndicate.org/rss` |
+
+---
+
 ## Schema Database Supabase
 
 Eseguire questo SQL nella Supabase SQL Editor prima di avviare il progetto.
@@ -79,6 +124,7 @@ create table sources (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   rss_url text not null,
+  tab text not null check (tab in ('amazon', 'macro')),
   category text,
   active boolean default true,
   created_at timestamptz default now()
@@ -92,6 +138,7 @@ create table articles (
   content text,
   source_url text unique not null,
   source_name text,
+  tab text not null check (tab in ('amazon', 'macro')),
   category text,
   tags text[],
   published_at timestamptz,
@@ -105,6 +152,9 @@ create table articles (
 -- Indice per full-text search in italiano
 create index on articles
   using gin(to_tsvector('italian', title || ' ' || coalesce(summary_ai, '')));
+
+-- Indice per filtrare per tab
+create index on articles (tab, published_at desc);
 ```
 
 ---
@@ -129,7 +179,7 @@ APIFY_API_TOKEN=apify_api_...
 INGEST_API_KEY=scegli_una_chiave_segreta_lunga
 ```
 
-> ⚠️ Non committare mai il file `.env.local` su GitHub. Aggiungilo al `.gitignore`.
+> ⚠️ Non committare mai il file `.env.local` su GitHub.
 
 ---
 
@@ -144,7 +194,7 @@ POST /api/ingest
 Authorization: Bearer {INGEST_API_KEY}
 ```
 
-Per testare manualmente da terminale:
+Per testare manualmente:
 
 ```bash
 curl -X POST https://tuo-sito.vercel.app/api/ingest \
@@ -154,10 +204,11 @@ curl -X POST https://tuo-sito.vercel.app/api/ingest \
 ### Passo 2 — Lettura fonti da Supabase
 
 La route legge tutte le righe di `sources` dove `active = true`.
+Ogni fonte ha un campo `tab` (`amazon` o `macro`) che viene passato all'articolo.
 
 ### Passo 3 — Chiamata Apify RSS Reader
 
-Per ogni fonte, viene chiamato l'Actor `automation-lab/rss-feed-reader` tramite API REST:
+Per ogni fonte, viene chiamato l'Actor `automation-lab/rss-feed-reader`:
 
 ```
 POST https://api.apify.com/v2/acts/automation-lab~rss-feed-reader/run-sync-get-dataset-items
@@ -170,22 +221,25 @@ Body JSON:
 }
 ```
 
-L'Actor restituisce un array di oggetti con: `title`, `link`, `pubDate`, `author`, `description`, `content`.
-
 ### Passo 4 — Deduplication
 
-Prima di processare ogni articolo, la route controlla se `source_url` esiste già nella tabella `articles`. Se esiste, l'articolo viene saltato.
+Prima di processare ogni articolo, la route controlla se `source_url` esiste già nella tabella `articles`. Se esiste, viene saltato.
 
 ### Passo 5 — Processing con Claude API
 
 Per ogni articolo nuovo, viene chiamata Claude API con questo prompt:
 
 ```
-Sei un editor specializzato in news per venditori Amazon e e-commerce.
+Sei un editor specializzato in news finanziarie, di mercato e del mondo Amazon.
 Dato questo articolo, produci un JSON con:
+
 - "summary": riassunto in italiano di 120-150 parole, chiaro e informativo
-- "category": una tra [Policy & Regolamenti, FBA & Logistica, Strumenti Seller,
-  Advertising, News Aziendale, Finanza & Tasse, Community]
+- "tab": uno tra ["amazon", "macro"]
+  - "amazon" = notizia diretta per venditori Amazon (FBA, policy, tools, advertising, community)
+  - "macro" = notizia che può impattare Amazon come azienda (dazi, tassi, antitrust, Big Tech, recessione)
+- "category": una tra le seguenti, coerente con il tab scelto:
+  Se tab="amazon": [Policy & Regolamenti, FBA & Logistica, Strumenti Seller, Advertising, News Aziendale, Finanza & Tasse, Community]
+  Se tab="macro":  [Finanza & Mercati, Politica & Leggi, Big Tech, Macro Economia]
 - "tags": array di 3-5 tag pertinenti in italiano
 
 Rispondi SOLO con JSON valido, nessun testo aggiuntivo.
@@ -194,9 +248,12 @@ Titolo: {title}
 Contenuto: {content}
 ```
 
+> Nota: il campo `tab` della fonte in Supabase è un suggerimento iniziale, ma Claude può correggerlo se il contenuto non corrisponde.
+
 ### Passo 6 — Salvataggio su Supabase
 
-L'articolo viene salvato con tutti i campi, inclusi `summary_ai`, `category` e `tags` generati da Claude. Lo `slug` viene generato automaticamente dal titolo (lowercase, trattini, caratteri speciali rimossi).
+L'articolo viene salvato con tutti i campi inclusi `tab`, `summary_ai`, `category` e `tags`.
+Lo `slug` viene generato automaticamente dal titolo.
 
 ---
 
@@ -215,51 +272,40 @@ Creare il file `vercel.json` nella root del progetto:
 }
 ```
 
-> Il cron è disponibile solo su piani Vercel Pro. Su piano Hobby si può usare un servizio esterno come **[cron-job.org](http://cron-job.org)** (gratuito) che chiama l'endpoint `/api/ingest` ogni 6 ore.
+> Su piano Hobby usare **cron-job.org** (gratuito) per triggerare l'endpoint ogni 6 ore.
 
 ---
 
-## Apify Actor — Dettagli Tecnici
+## Struttura Frontend
 
-**Actor da usare:** `automation-lab/rss-feed-reader`
+Il frontend ha **due tab switchabili**:
 
-**Caratteristiche:**
-- Supporta RSS 2.0, Atom 1.0, RSS 1.0 (RDF)
-- Estrae: titolo, link, data pubblicazione, autore, categoria, descrizione, contenuto
-- Supporta più feed URL in una sola run
-- Deduplication interna tramite campo `guid`
-- Costo stimato: ~$0.0005 per articolo
+| Tab | Colore accent | Categorie |
+|---|---|---|
+| MONDO AMAZON | Arancione `#FF6600` | FBA, Policy, Tools, Ads, Community, Finance, Company |
+| IMPATTO SU AMAZON | Azzurro `#00BFFF` | Finanza & Mercati, Politica & Leggi, Big Tech, Macro Economia |
 
-**Esempio di output per singolo articolo:**
-
-```json
-{
-  "title": "Amazon Raises FBA Fees for Q4 2025",
-  "link": "https://www.helium10.com/blog/amazon-fba-fees-q4",
-  "pubDate": "2025-10-01T10:30:00Z",
-  "author": "Helium 10 Team",
-  "description": "Amazon has announced new FBA fee changes...",
-  "content": "Full article text here...",
-  "guid": "https://www.helium10.com/blog/amazon-fba-fees-q4"
-}
-```
+Ogni tab ha:
+- Sidebar con categorie filtrabili specifiche del tab
+- Feed RSS specifici del tab
+- Articolo featured + griglia
+- Statistiche e distribuzione specifiche del tab
+- Il colore dell'interfaccia cambia dinamicamente con il tab attivo
 
 ---
 
 ## Aggiungere Nuove Fonti
 
-Per aggiungere una nuova fonte RSS senza toccare il codice, inserire una riga nella tabella `sources` su Supabase:
-
 ```sql
-insert into sources (name, rss_url, category, active)
-values ('Nome Fonte', 'https://esempio.com/feed/', 'News', true);
-```
+-- Aggiungere una fonte al tab Amazon
+insert into sources (name, rss_url, tab, category, active)
+values ('Nome Fonte', 'https://esempio.com/feed/', 'amazon', 'FBA & Logistica', true);
 
-La prossima run di Apify la includerà automaticamente.
+-- Aggiungere una fonte al tab Macro
+insert into sources (name, rss_url, tab, category, active)
+values ('Nome Fonte', 'https://esempio.com/feed/', 'macro', 'Finanza & Mercati', true);
 
-Per disattivare temporaneamente una fonte senza eliminarla:
-
-```sql
+-- Disattivare una fonte
 update sources set active = false where name = 'Nome Fonte';
 ```
 
@@ -269,35 +315,39 @@ update sources set active = false where name = 'Nome Fonte';
 
 | Servizio | Utilizzo stimato | Costo |
 |---|---|---|
-| Apify | ~300 articoli/mese | ~$0.15 |
-| Claude API | ~300 chiamate/mese | ~$3–5 |
+| Apify | ~500 articoli/mese (2 tab) | ~$0.25 |
+| Claude API | ~500 chiamate/mese | ~$5–8 |
 | Supabase | Free tier (500MB) | €0 |
 | Vercel | Hobby / Pro | €0–20 |
-| **Totale** | | **~€5–25/mese** |
+| **Totale** | | **~€7–30/mese** |
 
 ---
 
 ## Troubleshooting
 
 **L'ingest non raccoglie articoli nuovi**
-→ Verificare che i feed RSS siano attivi visitando gli URL direttamente nel browser.
+→ Verificare che i feed RSS siano attivi visitando gli URL nel browser.
 → Controllare i log Vercel in `Functions` → `/api/ingest`.
 
-**Claude restituisce JSON malformato**
-→ Aggiungere un blocco try/catch con fallback: se il parsing JSON fallisce, salvare l'articolo senza summary AI e riprocessarlo in un secondo momento.
+**Claude assegna il tab sbagliato**
+→ Raffinare il prompt con esempi concreti. Il campo `tab` della fonte in Supabase è un hint iniziale che Claude può usare come contesto.
 
-**Articoli duplicati nel database**
-→ Il constraint `unique` su `source_url` blocca i duplicati a livello DB. Se appaiono duplicati, verificare che lo slug venga generato correttamente.
+**Claude restituisce JSON malformato**
+→ Aggiungere try/catch con fallback: se il parsing JSON fallisce, salvare l'articolo senza summary AI e riprocessarlo in seguito.
 
 **Feed Reddit bloccato**
-→ Reddit può bloccare request senza User-Agent. Passare header custom nell'Actor Apify: `"User-Agent": "AmazonInsiderBot/1.0"`.
+→ Passare header custom nell'Actor Apify: `"User-Agent": "AmazonBulletinBot/1.0"`.
+
+**Feed Bloomberg/FT richiedono abbonamento**
+→ Alcuni feed premium restituiscono solo titoli senza contenuto. In questo caso Claude elabora solo il titolo + description, con summary più breve.
 
 ---
 
 ## Roadmap Futura
 
-- [ ] Aggiungere Google News RSS con query `amazon seller site:[news.google.com](http://news.google.com)`
-- [ ] Notifiche Telegram/Slack per articoli con keyword ad alta priorità (es. "fee increase", "policy change")
-- [ ] Dashboard admin per gestire fonti e mettere articoli in evidenza
-- [ ] Newsletter settimanale automatica con Resend
-- [ ] Traduzione automatica per fonti in lingua diversa dall'inglese
+- [ ] Alert Telegram per notizie ad alto impatto (keyword: "dazi", "antitrust", "fee increase")
+- [ ] Score di rilevanza 1-10 per ogni articolo generato da Claude
+- [ ] Dashboard admin per gestire fonti e featured
+- [ ] Newsletter settimanale con top 5 per tab (Resend)
+- [ ] Google News RSS con query `amazon site:news.google.com`
+- [ ] Sentiment analysis sul titolo (positivo/negativo/neutro per Amazon)
