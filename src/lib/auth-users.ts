@@ -12,9 +12,10 @@ export type AuthUser = {
 };
 
 export const AUTHORIZED_USERS: AuthUser[] = [
-  { code: "admin-2024",   name: "Admin"       },
-  // { code: "marco-seller", name: "Marco"    },
-  // { code: "laura-team",   name: "Laura"    },
+  { code: "admin-2024",          name: "Admin"      },
+  { code: "Loris-ceo",           name: "Loris"      },
+  { code: "Francesco-manager",   name: "Francesco"  },
+  { code: "Luca-cto",            name: "Luca"       },
 ];
 
 export function findUser(code: string): AuthUser | null {
