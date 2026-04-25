@@ -4,6 +4,8 @@ import { useState } from "react";
 import StatusBar from "@/components/StatusBar";
 import Sidebar from "@/components/Sidebar";
 import ArticleCard from "@/components/ArticleCard";
+import OnboardingModal from "@/components/OnboardingModal";
+import UXMapModal from "@/components/UXMapModal";
 import { articles } from "@/lib/mock-data";
 
 type Tab = "amazon" | "macro";
@@ -42,6 +44,7 @@ const CATEGORY_MAP: Record<Tab, Record<string, string>> = {
 export default function Home() {
   const [activeTab, setActiveTab]           = useState<Tab>("amazon");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [uxMapOpen, setUxMapOpen]           = useState(false);
 
   const tabArticles = articles.filter((a) => a.tab === activeTab);
   const featured    = tabArticles.find((a) => a.isFeatured);
@@ -63,6 +66,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-black dot-grid">
+      <OnboardingModal />
+      <UXMapModal open={uxMapOpen} onClose={() => setUxMapOpen(false)} />
       <StatusBar activeTab={activeTab} />
 
       {/* Tab switcher */}
@@ -119,6 +124,7 @@ export default function Home() {
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
           accentColor={accentColor}
+          onOpenMap={() => setUxMapOpen(true)}
         />
 
         {/* Main content */}

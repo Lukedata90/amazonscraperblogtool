@@ -7,9 +7,10 @@ type Props = {
   activeCategory: string;
   onCategoryChange: (id: string) => void;
   accentColor: string;
+  onOpenMap: () => void;
 };
 
-export default function Sidebar({ activeTab, activeCategory, onCategoryChange, accentColor }: Props) {
+export default function Sidebar({ activeTab, activeCategory, onCategoryChange, accentColor, onOpenMap }: Props) {
   const categories = activeTab === "amazon" ? amazonCategories : macroCategories;
   const feeds      = activeTab === "amazon" ? amazonFeeds      : macroFeeds;
 
@@ -104,12 +105,27 @@ export default function Sidebar({ activeTab, activeCategory, onCategoryChange, a
       </div>
 
       {/* Bottom bar */}
-      <div className="px-4 py-3 border-t" style={{ borderColor: dimmer }}>
+      <div className="px-4 py-3 border-t flex flex-col gap-2" style={{ borderColor: dimmer }}>
         <button
           className="w-full hud-sm text-center py-2 transition-all"
           style={{ fontSize: 9, letterSpacing: "0.15em", color: accentColor, fontFamily: "inherit", textTransform: "uppercase", cursor: "pointer", background: "transparent" }}
         >
           ▶ RUN INGEST
+        </button>
+        <button
+          onClick={onOpenMap}
+          className="w-full text-center py-2 transition-all"
+          style={{
+            fontSize: 9, letterSpacing: "0.15em",
+            color: "rgba(255,255,255,0.35)",
+            fontFamily: "inherit", textTransform: "uppercase",
+            cursor: "pointer", background: "transparent",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = accentColor; (e.currentTarget as HTMLButtonElement).style.borderColor = `${accentColor}50`; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.35)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.08)"; }}
+        >
+          ⬡ MAPPA SISTEMA
         </button>
       </div>
     </aside>
